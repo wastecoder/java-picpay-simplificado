@@ -2,6 +2,7 @@ package com.wastecoder.picpay.user.domain.model;
 
 import com.wastecoder.picpay.common.domain.exceptions.ApplicationException;
 import com.wastecoder.picpay.user.domain.enums.UserType;
+import lombok.Builder;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
@@ -10,6 +11,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Getter
+@Builder(toBuilder = true)
 public class User {
 
     private static final Pattern DOCUMENT_PATTERN = Pattern.compile(
