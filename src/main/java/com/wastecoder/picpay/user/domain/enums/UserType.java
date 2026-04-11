@@ -1,15 +1,18 @@
 package com.wastecoder.picpay.user.domain.enums;
 
+import java.util.Optional;
+
 public enum UserType {
     COMMON,
     MERCHANT;
 
-    public static UserType findByName(String name) {
+
+    public static Optional<UserType> findByName(String name) {
         for (UserType type : values()) {
             if (type.name().equalsIgnoreCase(name)) {
-                return type;
+                return Optional.of(type);
             }
         }
-        return null;
+        return Optional.empty();
     }
 }
