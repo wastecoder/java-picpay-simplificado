@@ -78,6 +78,18 @@ dependencies {
 
 
 	// ========================
+	// SECURITY
+	// ========================
+
+	// Authentication / Authorization
+	implementation("org.springframework.boot:spring-boot-starter-security")
+	testImplementation("org.springframework.boot:spring-boot-starter-security")
+
+	// JWT
+	implementation("com.auth0:java-jwt:4.5.1")
+
+
+	// ========================
 	// TEST
 	// ========================
 
