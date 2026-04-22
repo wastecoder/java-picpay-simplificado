@@ -1,21 +1,9 @@
 package com.wastecoder.picpay.transaction.domain.ports.input;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.UUID;
+import com.wastecoder.picpay.transaction.domain.viewmodels.TransferCommand;
+import com.wastecoder.picpay.transaction.domain.viewmodels.TransferResult;
 
 public interface TransferUseCase {
 
     TransferResult execute(TransferCommand command);
-
-    record TransferCommand(
-            UUID fromUserId,
-            UUID targetUserId,
-            BigDecimal value,
-            String description
-    ) {}
-
-    record TransferResult(
-            LocalDateTime sentDate
-    ) {}
 }

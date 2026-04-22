@@ -4,12 +4,14 @@ import com.wastecoder.picpay.transaction.domain.model.Transaction;
 import com.wastecoder.picpay.transaction.domain.ports.output.TransferValidationGateway;
 import com.wastecoder.picpay.transaction.domain.viewmodels.TransferValidationResult;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-@Slf4j
 public class TransferValidationGatewayImpl implements TransferValidationGateway {
+
+    private static final Logger log = LoggerFactory.getLogger(TransferValidationGatewayImpl.class);
 
     private final TransferValidationClient client;
 

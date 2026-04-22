@@ -3,12 +3,14 @@ package com.wastecoder.picpay.user.adapter.client;
 import com.wastecoder.picpay.user.domain.model.User;
 import com.wastecoder.picpay.user.domain.ports.output.NotifyUserGateway;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-@Slf4j
 public class NotifyUserGatewayImpl implements NotifyUserGateway {
+
+    private static final Logger log = LoggerFactory.getLogger(NotifyUserGatewayImpl.class);
 
     private final NotifyUserClient client;
 

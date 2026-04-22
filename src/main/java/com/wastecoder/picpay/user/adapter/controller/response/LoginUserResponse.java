@@ -1,7 +1,7 @@
 package com.wastecoder.picpay.user.adapter.controller.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.wastecoder.picpay.user.domain.ports.input.LoginUserUseCase;
+import com.wastecoder.picpay.user.domain.viewmodels.LoginUserResult;
 
 import java.util.UUID;
 
@@ -18,7 +18,7 @@ public record LoginUserResponse(
 
 ) {
 
-    public LoginUserResponse(LoginUserUseCase.LoginUserResult result) {
+    public LoginUserResponse(LoginUserResult result) {
         this(
                 result.userId(),
                 result.accessToken(),

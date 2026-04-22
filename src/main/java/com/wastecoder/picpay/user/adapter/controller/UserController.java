@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,11 +19,13 @@ import java.net.URI;
 @RestController
 @RequestMapping("/api/v1/users")
 @Tag(name = "User Endpoints")
-@RequiredArgsConstructor
 public class UserController {
 
     private final CreateUserUseCase createUserUseCase;
 
+    public UserController(CreateUserUseCase createUserUseCase) {
+        this.createUserUseCase = createUserUseCase;
+    }
 
     @PostMapping
     @Operation(
@@ -42,7 +43,7 @@ public class UserController {
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{id}")
-                .buildAndExpand(createdUser.getId().toString())
+                .buildAndExpand(createdUser.id().toString())
                 .toUri();
 
         return ResponseEntity.created(location).build();

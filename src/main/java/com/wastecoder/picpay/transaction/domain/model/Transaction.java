@@ -1,70 +1,24 @@
 package com.wastecoder.picpay.transaction.domain.model;
 
-import com.wastecoder.picpay.common.domain.exceptions.ApplicationException;
 import com.wastecoder.picpay.user.domain.model.User;
-import lombok.Builder;
-import lombok.Getter;
-import org.springframework.http.HttpStatus;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 
-@Getter
-@Builder(toBuilder = true)
-public class Transaction {
+public record Transaction(
 
-    private final User from;
-    private final User target;
-    private final BigDecimal value;
-    private final String description;
+        @NotNull(message = "Sender (from) must not be null")
+        User from,
 
-    public Transaction(User from,
-                       User target,
-                       BigDecimal value,
-                       String description) {
+        @NotNull(message = "Target must not be null")
+        User target,
 
-        this.from = from;
-        this.target = target;
-        this.value = value;
-        this.description = description;
+        @NotNull(message = "Value must not be null")
+        @Positive(message = "Value must be positive")
+        BigDecimal value,
 
-        validate();
-    }
-
-    private void validate() {
-
-        if (from == null) {
-            throw new ApplicationException(
-                    HttpStatus.BAD_REQUEST,
-                    "Sender (from) must not be null"
-            );
-        }
-
-        if (target == null) {
-            throw new ApplicationException(
-                    HttpStatus.BAD_REQUEST,
-                    "Target must not be null"
-            );
-        }
-
-        if (value == null) {
-            throw new ApplicationException(
-                    HttpStatus.BAD_REQUEST,
-                    "Value must not be null"
-            );
-        }
-
-        if (value.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ApplicationException(
-                    HttpStatus.BAD_REQUEST,
-                    "Value must be positive"
-            );
-        }
-
-        if (description == null || description.isBlank()) {
-            throw new ApplicationException(
-                    HttpStatus.BAD_REQUEST,
-                    "Description must not be blank"
-            );
-        }
-    }
-}
+        @NotBlank(message = "Description must not be blank")
+        String description
+) {}

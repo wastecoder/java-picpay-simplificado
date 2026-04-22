@@ -11,25 +11,25 @@ public class UserEntityMapper {
 
     public static UserEntity fromModelToEntity(User from) {
         return UserEntity.builder()
-                .fullName(from.getFullName())
-                .document(from.getDocument())
-                .email(from.getEmail())
-                .type(from.getType())
-                .password(from.getPassword())
-                .balance(from.getBalance())
-                .externalId(from.getId() != null ? from.getId() : UUID.randomUUID())
+                .fullName(from.fullName())
+                .document(from.document())
+                .email(from.email())
+                .type(from.type())
+                .password(from.password())
+                .balance(from.balance())
+                .externalId(from.id() != null ? from.id() : UUID.randomUUID())
                 .build();
     }
 
     public static User fromEntityToModel(UserEntity from) {
-        return User.builder()
-                .fullName(from.getFullName())
-                .document(from.getDocument())
-                .email(from.getEmail())
-                .type(from.getType())
-                .password(from.getPassword())
-                .balance(from.getBalance())
-                .id(from.getExternalId())
-                .build();
+        return new User(
+                from.getFullName(),
+                from.getDocument(),
+                from.getEmail(),
+                from.getPassword(),
+                from.getType(),
+                from.getBalance(),
+                from.getExternalId()
+        );
     }
 }

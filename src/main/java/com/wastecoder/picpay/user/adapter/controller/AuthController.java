@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,11 +17,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/auth")
 @Tag(name = "Auth Endpoints")
-@RequiredArgsConstructor
 public class AuthController {
 
     private final LoginUserUseCase loginUserUseCase;
 
+    public AuthController(LoginUserUseCase loginUserUseCase) {
+        this.loginUserUseCase = loginUserUseCase;
+    }
 
     @PostMapping("/login")
     @Operation(
@@ -35,7 +36,9 @@ public class AuthController {
     public ResponseEntity<LoginUserResponse> loginUser(
             @Valid @RequestBody LoginUserRequest request
     ) {
-        var result = loginUserUseCase.execute(request.toCommand());
-        return ResponseEntity.ok(new LoginUserResponse(result));
+        final var result = loginUserUseCase.execute(request.toCommand());
+
+        final var response = new LoginUserResponse(result);
+        return ResponseEntity.ok(response);
     }
 }

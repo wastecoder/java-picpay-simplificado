@@ -5,7 +5,6 @@ import com.wastecoder.picpay.user.adapter.repository.mapper.UserEntityMapper;
 import com.wastecoder.picpay.user.domain.exceptions.UserNotFoundException;
 import com.wastecoder.picpay.user.domain.model.User;
 import com.wastecoder.picpay.user.domain.ports.output.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -13,11 +12,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-@RequiredArgsConstructor
 public class UserRepositoryImpl implements UserRepository {
 
     private final UserEntityDatabase userEntityDatabase;
 
+    public UserRepositoryImpl(UserEntityDatabase userEntityDatabase) {
+        this.userEntityDatabase = userEntityDatabase;
+    }
 
     @Override
     public Optional<User> findById(UUID id) {
@@ -47,7 +48,7 @@ public class UserRepositoryImpl implements UserRepository {
 
     @Override
     public User update(User user) {
-        var existing = userEntityDatabase.findByExternalId(user.getId())
+        var existing = userEntityDatabase.findByExternalId(user.id())
                 .orElseThrow(UserNotFoundException::new);
 
         var updatedEntity = UserEntityMapper.fromModelToEntity(user);
@@ -59,11 +60,11 @@ public class UserRepositoryImpl implements UserRepository {
 
     @Override
     public void updateBalanceWithPlusOperation(User user, BigDecimal value) {
-        userEntityDatabase.updateBalanceWithPlusOperation(user.getId(), value);
+        userEntityDatabase.updateBalanceWithPlusOperation(user.id(), value);
     }
 
     @Override
     public void updateBalanceWithMinusOperation(User user, BigDecimal value) {
-        userEntityDatabase.updateBalanceWithMinusOperation(user.getId(), value);
+        userEntityDatabase.updateBalanceWithMinusOperation(user.id(), value);
     }
 }

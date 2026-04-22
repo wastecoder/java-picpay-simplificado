@@ -1,7 +1,7 @@
 package com.wastecoder.picpay.user.adapter.controller.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.wastecoder.picpay.user.domain.ports.input.LoginUserUseCase;
+import com.wastecoder.picpay.user.domain.viewmodels.LoginUserCommand;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 
@@ -19,8 +19,8 @@ public record LoginUserRequest(
 
 ) {
 
-    public LoginUserUseCase.LoginUserCommand toCommand() {
-        return new LoginUserUseCase.LoginUserCommand(
+    public LoginUserCommand toCommand() {
+        return new LoginUserCommand(
                 email,
                 password
         );

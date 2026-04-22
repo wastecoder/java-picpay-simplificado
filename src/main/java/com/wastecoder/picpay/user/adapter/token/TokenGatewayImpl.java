@@ -2,6 +2,7 @@ package com.wastecoder.picpay.user.adapter.token;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.wastecoder.picpay.user.domain.model.TokenSession;
 import com.wastecoder.picpay.user.domain.model.User;
 import com.wastecoder.picpay.user.domain.ports.output.TokenGateway;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,13 +28,14 @@ public class TokenGatewayImpl implements TokenGateway {
     }
 
 
-    public TokenResponse generate(User user) {
+    @Override
+    public TokenSession generate(User user) {
         String token = JWT.create()
                 .withExpiresAt(new Date(System.currentTimeMillis() + (jwtExpiresIn * 1000)))
-                .withSubject(user.getId().toString())
+                .withSubject(user.id().toString())
                 .withIssuer(issuer)
                 .sign(algorithm);
 
-        return new TokenResponse(token, jwtExpiresIn);
+        return new TokenSession(token, jwtExpiresIn);
     }
 }
