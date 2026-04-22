@@ -1,3 +1,31 @@
 spring:
   profiles:
     active: docker
+  cloud:
+    openfeign:
+      client:
+        config:
+          notify-user:
+            url: ${CLIENT_NOTIFY_SENDER:http://o4d9z.mocklab.io/notify}
+            connectTimeout: 5000
+            readTimeout: 5000
+          transfer-validation:
+            url: ${CLIENT_TRANSFER_VALIDATOR:https://run.mocky.io/v3/8fafdd68-a090-496f-8c9a-3442cf30dae6}
+            connectTimeout: 5000
+            readTimeout: 5000
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        failureRateThreshold: 50
+        minimumNumberOfCalls: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 60s
+        permittedNumberOfCallsInHalfOpenState: 3
+    instances:
+      notify-user:
+        baseConfig: default
+      transfer-validation:
+        baseConfig: default

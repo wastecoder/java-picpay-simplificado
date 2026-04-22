@@ -1,54 +1,36 @@
 package com.wastecoder.picpay.user.adapter.client;
 
-import com.wastecoder.picpay.common.adapter.client.NotifyMessage;
-import com.wastecoder.picpay.common.adapter.client.RestTemplateUtils;
 import com.wastecoder.picpay.user.domain.model.User;
 import com.wastecoder.picpay.user.domain.ports.output.NotifyUserGateway;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cloud.client.circuitbreaker.CircuitBreaker;
-import org.springframework.cloud.client.circuitbreaker.CircuitBreakerFactory;
-import org.springframework.http.HttpMethod;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
-
-import java.util.Collections;
 
 @Component
+@Slf4j
 public class NotifyUserGatewayImpl implements NotifyUserGateway {
 
-    private final RestTemplate restTemplate;
-    private final CircuitBreakerFactory<?, ?> circuitBreakerFactory;
-    private final String notifyUserEndpoint;
+    private final NotifyUserClient client;
 
-    public NotifyUserGatewayImpl(
-            RestTemplate restTemplate,
-            CircuitBreakerFactory<?, ?> circuitBreakerFactory,
-            @Value("${client.notify.sender-url}") String notifyUserEndpoint
-    ) {
-        this.restTemplate = restTemplate;
-        this.circuitBreakerFactory = circuitBreakerFactory;
-        this.notifyUserEndpoint = notifyUserEndpoint;
+    public NotifyUserGatewayImpl(NotifyUserClient client) {
+        this.client = client;
     }
 
     @Override
+    @CircuitBreaker(
+            name = "notify-user",
+            fallbackMethod = "notifyUserFallback"
+    )
     public void notify(User user, String messageTitle, String messageBody) {
+        final NotifyUserRequest message = new NotifyUserRequest(user.email(), messageTitle, messageBody);
+        client.notify(message);
+    }
 
-        CircuitBreaker circuitBreaker = circuitBreakerFactory.create("circuitbreaker");
-
-        circuitBreaker.run(() -> {
-            RestTemplateUtils.request(
-                    restTemplate,
-                    notifyUserEndpoint,
-                    HttpMethod.POST,
-                    new NotifyMessage(
-                            user.getEmail(),
-                            messageTitle,
-                            messageBody
-                    ),
-                    Collections.emptyMap(),
-                    Void.class
-            );
-            return null;
-        });
+    public void notifyUserFallback(User user, String messageTitle, String messageBody, Throwable ex) {
+        log.warn(
+                "Fallback triggered for notify-user. Could not notify {}. Cause: {}",
+                user.email(),
+                ex.toString()
+        );
     }
 }

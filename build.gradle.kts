@@ -45,6 +45,9 @@ dependencies {
 	// Documentation
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0")
 
+	// Client
+	implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
+
 
 	// ========================
 	// COMPILE ONLY

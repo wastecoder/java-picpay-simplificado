@@ -23,9 +23,3 @@ security:
     secret: ${JWT_GENERATOR_SIGNATURE_SECRET:secretJWTGenerator}
     expires-after: 600
     issuer: ${APP_JWT_ISSUER:PICPAY-CHALLENGE}
-
-client:
-  transfer:
-    validator-url: ${CLIENT_TRANSFER_VALIDATOR:https://run.mocky.io/v3/8fafdd68-a090-496f-8c9a-3442cf30dae6}
-  notify:
-    sender-url: ${CLIENT_NOTIFY_SENDER:http://o4d9z.mocklab.io/notify}

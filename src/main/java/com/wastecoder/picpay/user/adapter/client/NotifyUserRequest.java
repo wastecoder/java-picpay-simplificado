@@ -1,8 +1,8 @@
-package com.wastecoder.picpay.common.adapter.client;
+package com.wastecoder.picpay.user.adapter.client;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public record NotifyMessage(
+public record NotifyUserRequest(
 
         @JsonProperty("email")
         String email,

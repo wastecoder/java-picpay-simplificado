@@ -1,13 +1,9 @@
 package com.wastecoder.picpay.transaction.domain.ports.output;
 
 import com.wastecoder.picpay.transaction.domain.model.Transaction;
+import com.wastecoder.picpay.transaction.domain.viewmodels.TransferValidationResult;
 
-public interface TransferValidationClient {
+public interface TransferValidationGateway {
 
     TransferValidationResult validate(Transaction transaction);
-
-    enum TransferValidationResult {
-        ALLOWED,
-        DENIED
-    }
 }
