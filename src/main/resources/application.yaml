@@ -24,6 +24,8 @@ resilience4j:
         automaticTransitionFromOpenToHalfOpenEnabled: true
         waitDurationInOpenState: 60s
         permittedNumberOfCallsInHalfOpenState: 3
+        ignore-exceptions:
+          - feign.FeignException$BadRequest
     instances:
       notify-user:
         baseConfig: default
