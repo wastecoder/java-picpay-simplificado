@@ -47,15 +47,22 @@ tasks.matching { it.name == "jacocoTestReport" }.configureEach {
     finalizedBy("printTestSummary")
 }
 
+tasks.matching { it.name == "pitest" }.configureEach {
+    finalizedBy("printTestSummary")
+}
+
 tasks.register("printTestSummary") {
-    mustRunAfter("test", "jacocoTestReport")
+    mustRunAfter("test", "jacocoTestReport", "pitest")
     doLast {
         printSummary()
     }
 }
 
 fun printSummary() {
-    if (collectedTotal.get() == 0L && collectedFailed.get() == 0L && collectedSkipped.get() == 0L) {
+    val xmlFileJacoco = file("build/reports/jacoco/test/jacocoTestReport.xml")
+    val pitestXml = file("build/reports/pitest/mutations.xml")
+    val hasTestData = collectedTotal.get() > 0L || collectedFailed.get() > 0L || collectedSkipped.get() > 0L
+    if (!hasTestData && !xmlFileJacoco.exists() && !pitestXml.exists()) {
         return
     }
 
@@ -65,27 +72,28 @@ fun printSummary() {
     val out = StringBuilder()
 
     out.appendLine()
-    out.appendLine(sep)
-    out.appendLine("TEST SUMMARY")
-    out.appendLine(subSep)
-    out.appendLine("Total:     ${collectedTotal.get()}")
-    out.appendLine("Passed:    ${collectedPassed.get()}")
-    out.appendLine("Failed:    ${collectedFailed.get()}")
-    out.appendLine("Skipped:   ${collectedSkipped.get()}")
-    out.appendLine("Time:      ${formatTime(collectedEnd.get() - collectedStart.get())}")
-    if (collectedFailures.isNotEmpty()) {
-        out.appendLine("Failed tests:")
-        synchronized(collectedFailures) {
-            for ((id, displayName) in collectedFailures) {
-                out.appendLine("  - $id  ($displayName)")
+    if (hasTestData) {
+        out.appendLine(sep)
+        out.appendLine("TEST SUMMARY")
+        out.appendLine(subSep)
+        out.appendLine("Total:     ${collectedTotal.get()}")
+        out.appendLine("Passed:    ${collectedPassed.get()}")
+        out.appendLine("Failed:    ${collectedFailed.get()}")
+        out.appendLine("Skipped:   ${collectedSkipped.get()}")
+        out.appendLine("Time:      ${formatTime(collectedEnd.get() - collectedStart.get())}")
+        if (collectedFailures.isNotEmpty()) {
+            out.appendLine("Failed tests:")
+            synchronized(collectedFailures) {
+                for ((id, displayName) in collectedFailures) {
+                    out.appendLine("  - $id  ($displayName)")
+                }
             }
         }
     }
 
-    val xmlFile = file("build/reports/jacoco/test/jacocoTestReport.xml")
-    if (xmlFile.exists()) {
+    if (xmlFileJacoco.exists()) {
         try {
-            val cov = parseCoverage(xmlFile)
+            val cov = parseCoverage(xmlFileJacoco)
             out.appendLine(sep)
             out.appendLine("CODE COVERAGE (JaCoCo)")
             out.appendLine(subSep)
@@ -108,11 +116,29 @@ fun printSummary() {
         }
     }
 
+    if (pitestXml.exists()) {
+        try {
+            val mut = parseMutations(pitestXml)
+            out.appendLine(sep)
+            out.appendLine("MUTATION TESTING (Pitest)")
+            out.appendLine(subSep)
+            out.appendLine(formatMutationRow("Mutation score", mut.killed, mut.total))
+            out.appendLine(formatMutationRow("Survived",       mut.survived, mut.total))
+            out.appendLine(formatMutationRow("No coverage",    mut.noCoverage, mut.total))
+            if (mut.other > 0) {
+                out.appendLine(formatMutationRow("Other",      mut.other, mut.total))
+            }
+        } catch (ex: Exception) {
+            logger.warn("Failed to parse Pitest XML: ${ex.message}")
+        }
+    }
+
     out.appendLine(sep)
     val osCmd = osCommand()
     val jacocoHtml = file("build/reports/jacoco/test/html/index.html")
     val junitHtml = file("build/reports/tests/test/index.html")
-    if (jacocoHtml.exists() || junitHtml.exists()) {
+    val pitestHtml = file("build/reports/pitest/index.html")
+    if (jacocoHtml.exists() || junitHtml.exists() || pitestHtml.exists()) {
         out.appendLine("HTML reports:")
         if (jacocoHtml.exists()) {
             out.appendLine("  JaCoCo:  ${normalizeUri(jacocoHtml)}")
@@ -122,10 +148,60 @@ fun printSummary() {
             out.appendLine("  JUnit:   ${normalizeUri(junitHtml)}")
             out.appendLine("           $osCmd build/reports/tests/test/index.html")
         }
+        if (pitestHtml.exists()) {
+            out.appendLine("  Pitest:  ${normalizeUri(pitestHtml)}")
+            out.appendLine("           $osCmd build/reports/pitest/index.html")
+        }
         out.appendLine(sep)
     }
+    out.appendLine("Run mutation testing:  ./gradlew pitest")
+    out.appendLine(sep)
 
     print(out.toString())
+}
+
+data class MutationData(
+    val total: Int,
+    val killed: Int,
+    val survived: Int,
+    val noCoverage: Int,
+    val other: Int
+)
+
+fun parseMutations(xml: java.io.File): MutationData {
+    val dbf = DocumentBuilderFactory.newInstance()
+    dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+    dbf.setFeature("http://xml.org/sax/features/external-general-entities", false)
+    dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+    dbf.isValidating = false
+    val doc = dbf.newDocumentBuilder().parse(xml)
+    val mutations = directChildren(doc.documentElement, "mutation")
+
+    var killed = 0
+    var survived = 0
+    var noCoverage = 0
+    var other = 0
+    for (m in mutations) {
+        when (m.getAttribute("status")) {
+            "KILLED"      -> killed++
+            "SURVIVED"    -> survived++
+            "NO_COVERAGE" -> noCoverage++
+            else          -> other++
+        }
+    }
+    return MutationData(
+        total = mutations.size,
+        killed = killed,
+        survived = survived,
+        noCoverage = noCoverage,
+        other = other
+    )
+}
+
+fun formatMutationRow(label: String, count: Int, total: Int): String {
+    val pctStr = pct(count.toLong(), total.toLong()).padStart(6)
+    val labelPart = (label + ":").padEnd(15)
+    return "$labelPart $pctStr ($count/$total)"
 }
 
 data class JCounter(val missed: Long, val covered: Long)

@@ -3,6 +3,7 @@ plugins {
 	jacoco
 	id("org.springframework.boot") version "3.2.6"
 	id("io.spring.dependency-management") version "1.1.7"
+	id("info.solidsoft.pitest") version "1.19.0-rc.1"
 }
 
 group = "com.wastecoder.picpay"
@@ -142,6 +143,41 @@ tasks.jacocoTestReport {
 			}
 		})
 	)
+}
+
+pitest {
+	pitestVersion.set("1.17.4")
+	junit5PluginVersion.set("1.2.1")
+
+	targetClasses.set(setOf(
+		"com.wastecoder.picpay.user.usecases.*",
+		"com.wastecoder.picpay.transaction.usecases.*"
+	))
+
+	targetTests.set(setOf(
+		"com.wastecoder.picpay.user.usecases.*Test",
+		"com.wastecoder.picpay.transaction.usecases.*Test"
+	))
+
+	excludedClasses.set(setOf(
+		"com.wastecoder.picpay.user.usecases.LoginUserUseCaseImpl",
+		"com.wastecoder.picpay.transaction.usecases.TransferUseCaseImpl"
+	))
+
+	mutators.set(setOf("STRONGER"))
+
+	timestampedReports.set(false)
+	outputFormats.set(setOf("HTML", "XML"))
+
+	mutationThreshold.set(80)
+	coverageThreshold.set(80)
+
+	failWhenNoMutations.set(false)
+	verbose.set(false)
+}
+
+tasks.named("pitest") {
+	dependsOn(tasks.test)
 }
 
 apply(from = "gradle/test-summary.gradle.kts")
