@@ -1,5 +1,6 @@
 plugins {
 	java
+	jacoco
 	id("org.springframework.boot") version "3.2.6"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -113,3 +114,34 @@ dependencyManagement {
 tasks.withType<Test> {
 	useJUnitPlatform()
 }
+
+jacoco {
+	toolVersion = "0.8.12"
+}
+
+tasks.test {
+	finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+	reports {
+		xml.required.set(true)
+		html.required.set(true)
+	}
+	classDirectories.setFrom(
+		files(classDirectories.files.map {
+			fileTree(it) {
+				exclude(
+					"**/adapter/controller/request/**",
+					"**/adapter/controller/response/**",
+					"**/domain/viewmodels/**",
+					"**/adapter/repository/entity/**",
+					"com/wastecoder/picpay/PicpaySimplificadoApplication.class",
+					"**/JwtTokenConfiguration.class"
+				)
+			}
+		})
+	)
+}
+
+apply(from = "gradle/test-summary.gradle.kts")
