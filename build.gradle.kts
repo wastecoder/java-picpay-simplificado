@@ -151,12 +151,16 @@ pitest {
 
 	targetClasses.set(setOf(
 		"com.wastecoder.picpay.user.usecases.*",
-		"com.wastecoder.picpay.transaction.usecases.*"
+		"com.wastecoder.picpay.transaction.usecases.*",
+		"com.wastecoder.picpay.user.adapter.client.*",
+		"com.wastecoder.picpay.transaction.adapter.client.*"
 	))
 
 	targetTests.set(setOf(
 		"com.wastecoder.picpay.user.usecases.*Test",
-		"com.wastecoder.picpay.transaction.usecases.*Test"
+		"com.wastecoder.picpay.transaction.usecases.*Test",
+		"com.wastecoder.picpay.user.adapter.client.*Test",
+		"com.wastecoder.picpay.transaction.adapter.client.*Test"
 	))
 
 	mutators.set(setOf("STRONGER"))
