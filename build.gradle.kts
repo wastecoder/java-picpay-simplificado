@@ -155,7 +155,8 @@ pitest {
 		"com.wastecoder.picpay.user.adapter.client.*",
 		"com.wastecoder.picpay.transaction.adapter.client.*",
 		"com.wastecoder.picpay.user.adapter.controller.UserController",
-		"com.wastecoder.picpay.user.adapter.controller.AuthController"
+		"com.wastecoder.picpay.user.adapter.controller.AuthController",
+		"com.wastecoder.picpay.transaction.adapter.controller.TransactionController"
 	))
 
 	targetTests.set(setOf(
@@ -164,7 +165,8 @@ pitest {
 		"com.wastecoder.picpay.user.adapter.client.*Test",
 		"com.wastecoder.picpay.transaction.adapter.client.*Test",
 		"com.wastecoder.picpay.user.adapter.controller.UserControllerTest",
-		"com.wastecoder.picpay.user.adapter.controller.AuthControllerTest"
+		"com.wastecoder.picpay.user.adapter.controller.AuthControllerTest",
+		"com.wastecoder.picpay.transaction.adapter.controller.TransactionControllerTest"
 	))
 
 	mutators.set(setOf("STRONGER"))
