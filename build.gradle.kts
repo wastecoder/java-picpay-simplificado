@@ -160,7 +160,6 @@ pitest {
 	))
 
 	excludedClasses.set(setOf(
-		"com.wastecoder.picpay.user.usecases.LoginUserUseCaseImpl",
 		"com.wastecoder.picpay.transaction.usecases.TransferUseCaseImpl"
 	))
 

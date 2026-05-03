@@ -30,6 +30,18 @@ public final class UserMother {
         );
     }
 
+    public static User validCommonUserWithId(UUID id) {
+        return new User(
+                FULL_NAME_DEFAULT,
+                DOCUMENT_DEFAULT,
+                EMAIL_DEFAULT,
+                PASSWORD_DEFAULT,
+                UserType.COMMON,
+                BALANCE_DEFAULT,
+                id
+        );
+    }
+
     public static User validMerchantUser() {
         return new User(
                 FULL_NAME_DEFAULT,
