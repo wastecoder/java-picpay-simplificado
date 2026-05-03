@@ -42,6 +42,30 @@ public final class UserMother {
         );
     }
 
+    public static User commonUserWith(UUID id, BigDecimal balance) {
+        return new User(
+                FULL_NAME_DEFAULT,
+                DOCUMENT_DEFAULT,
+                EMAIL_DEFAULT,
+                PASSWORD_DEFAULT,
+                UserType.COMMON,
+                balance,
+                id
+        );
+    }
+
+    public static User merchantUserWith(UUID id, BigDecimal balance) {
+        return new User(
+                FULL_NAME_DEFAULT,
+                DOCUMENT_DEFAULT,
+                EMAIL_DEFAULT,
+                PASSWORD_DEFAULT,
+                UserType.MERCHANT,
+                balance,
+                id
+        );
+    }
+
     public static User validMerchantUser() {
         return new User(
                 FULL_NAME_DEFAULT,

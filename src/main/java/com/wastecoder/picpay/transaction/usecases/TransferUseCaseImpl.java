@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Service
@@ -29,17 +30,20 @@ public class TransferUseCaseImpl implements TransferUseCase {
     private final TransactionRepository transactionRepository;
     private final TransferValidationGateway transferValidationGateway;
     private final NotifyUserGateway notifyUserGateway;
+    private final Clock clock;
 
     public TransferUseCaseImpl(
             UserRepository userRepository,
             TransactionRepository transactionRepository,
             TransferValidationGateway transferValidationGateway,
-            NotifyUserGateway notifyUserGateway
+            NotifyUserGateway notifyUserGateway,
+            Clock clock
     ) {
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
         this.transferValidationGateway = transferValidationGateway;
         this.notifyUserGateway = notifyUserGateway;
+        this.clock = clock;
     }
 
     @Override
@@ -86,6 +90,6 @@ public class TransferUseCaseImpl implements TransferUseCase {
                 )
         );
 
-        return new TransferResult(LocalDateTime.now());
+        return new TransferResult(LocalDateTime.now(clock));
     }
 }

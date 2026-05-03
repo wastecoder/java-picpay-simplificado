@@ -159,10 +159,6 @@ pitest {
 		"com.wastecoder.picpay.transaction.usecases.*Test"
 	))
 
-	excludedClasses.set(setOf(
-		"com.wastecoder.picpay.transaction.usecases.TransferUseCaseImpl"
-	))
-
 	mutators.set(setOf("STRONGER"))
 
 	timestampedReports.set(false)
