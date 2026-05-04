@@ -22,6 +22,14 @@ public final class TransferRequestMother {
         );
     }
 
+    public static TransferRequest withTargetIdAndValue(String targetId, BigDecimal value) {
+        return new TransferRequest(
+                targetId,
+                value,
+                DESCRIPTION_DEFAULT
+        );
+    }
+
     public static TransferRequest withBlankTargetId() {
         return new TransferRequest(
                 "",
