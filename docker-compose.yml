@@ -3,13 +3,36 @@ services:
     image: postgres:16-alpine
     container_name: picpay_postgres
     environment:
-      POSTGRES_DB: picpay
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-picpay}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5433:5432"
     volumes:
       - picpay-postgres-volume:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    container_name: picpay_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-picpay}
+      DATABASE_USERNAME: ${POSTGRES_USER:-postgres}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      JWT_GENERATOR_SIGNATURE_SECRET: ${JWT_GENERATOR_SIGNATURE_SECRET:-secretJWTGenerator}
+      APP_JWT_ISSUER: ${APP_JWT_ISSUER:-PICPAY-CHALLENGE}
+      CLIENT_TRANSFER_VALIDATOR: ${CLIENT_TRANSFER_VALIDATOR:-https://run.mocky.io/v3/8fafdd68-a090-496f-8c9a-3442cf30dae6}
+      CLIENT_NOTIFY_SENDER: ${CLIENT_NOTIFY_SENDER:-http://o4d9z.mocklab.io/notify}
+    ports:
+      - "8080:8080"
     restart: unless-stopped
 
 volumes:
