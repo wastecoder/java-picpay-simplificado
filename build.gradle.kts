@@ -125,7 +125,25 @@ jacoco {
 	toolVersion = "0.8.12"
 }
 
+val jacocoExcludes = listOf(
+	"**/adapter/controller/request/**",
+	"**/adapter/controller/response/**",
+	"**/domain/viewmodels/**",
+	"**/adapter/repository/entity/**",
+	"com/wastecoder/picpay/PicpaySimplificadoApplication.class",
+	"**/JwtTokenConfiguration.class"
+)
+
 tasks.test {
+	exclude("**/*IntegrationTest.class")
+	finalizedBy(tasks.jacocoTestReport)
+}
+
+val integrationTest by tasks.registering(Test::class) {
+	description = "Runs Fase D integration tests (Testcontainers + WireMock)."
+	group = "verification"
+	include("**/*IntegrationTest.class")
+	shouldRunAfter(tasks.test)
 	finalizedBy(tasks.jacocoTestReport)
 }
 
@@ -136,19 +154,28 @@ tasks.jacocoTestReport {
 	}
 	classDirectories.setFrom(
 		files(classDirectories.files.map {
-			fileTree(it) {
-				exclude(
-					"**/adapter/controller/request/**",
-					"**/adapter/controller/response/**",
-					"**/domain/viewmodels/**",
-					"**/adapter/repository/entity/**",
-					"com/wastecoder/picpay/PicpaySimplificadoApplication.class",
-					"**/JwtTokenConfiguration.class"
-				)
-			}
+			fileTree(it) { exclude(jacocoExcludes) }
 		})
 	)
 }
+
+tasks.jacocoTestCoverageVerification {
+	classDirectories.setFrom(
+		files(classDirectories.files.map {
+			fileTree(it) { exclude(jacocoExcludes) }
+		})
+	)
+	violationRules {
+		rule {
+			element = "CLASS"
+			includes = listOf("com.wastecoder.picpay.*.usecases.*")
+			limit { minimum = "0.85".toBigDecimal() }
+		}
+		rule { limit { minimum = "0.60".toBigDecimal() } }
+	}
+}
+
+tasks.check { dependsOn(tasks.jacocoTestCoverageVerification) }
 
 pitest {
 	pitestVersion.set("1.17.4")
