@@ -38,7 +38,6 @@ docker compose up -d postgres
 ```
 
 - Postgres em `localhost:5433` (db `picpay`, usuário/senha `postgres/postgres`).
-- App em `http://localhost:8080`.
 - Swagger UI: <http://localhost:8080/swagger-ui.html>.
 
 ### 2.2 Modo full container (app + Postgres)
