@@ -74,8 +74,8 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("GIVEN use case throws UserNotFoundException WHEN POST /api/v1/auth/login THEN returns 412")
-    void shouldReturn412WhenUserNotFound() throws Exception {
+    @DisplayName("GIVEN use case throws UserNotFoundException WHEN POST /api/v1/auth/login THEN returns 404")
+    void shouldReturn404WhenUserNotFound() throws Exception {
         // Given
         LoginUserRequest request = LoginUserRequestMother.valid();
         when(loginUserUseCase.execute(any(LoginUserCommand.class)))
@@ -85,7 +85,7 @@ class AuthControllerTest {
         mockMvc.perform(post(LOGIN_ENDPOINT)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isPreconditionFailed());
+                .andExpect(status().isNotFound());
     }
 
     @Test

@@ -6,10 +6,10 @@ import org.springframework.http.HttpStatus;
 public class UserNotFoundException extends ApplicationException {
 
     public UserNotFoundException() {
-        super(HttpStatus.PRECONDITION_FAILED, "User not found.");
+        super(HttpStatus.NOT_FOUND, "User not found.");
     }
 
     public UserNotFoundException(String message) {
-        super(HttpStatus.PRECONDITION_FAILED, message);
+        super(HttpStatus.NOT_FOUND, message);
     }
 }

@@ -84,14 +84,14 @@ class DepositIntegrationTest {
     }
 
     @Test
-    @DisplayName("Deposit returns 412 when user does not exist")
-    void depositReturnsPreconditionFailedForUnknownUser() {
+    @DisplayName("Deposit returns 404 when user does not exist")
+    void depositReturnsNotFoundForUnknownUser() {
         UUID unknownId = UUID.randomUUID();
 
         ResponseEntity<String> response = http.postForEntity(
                 depositUrl(unknownId), new DepositPayload(new BigDecimal("10.00")), String.class);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.PRECONDITION_FAILED);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     private record DepositPayload(BigDecimal value) {}

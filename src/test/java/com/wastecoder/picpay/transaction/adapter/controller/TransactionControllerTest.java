@@ -182,8 +182,8 @@ class TransactionControllerTest {
     }
 
     @Test
-    @DisplayName("GIVEN use case throws UserNotFoundException WHEN POST /transfer THEN returns 412")
-    void shouldReturn412WhenUserNotFound() throws Exception {
+    @DisplayName("GIVEN use case throws UserNotFoundException WHEN POST /transfer THEN returns 404")
+    void shouldReturn404WhenUserNotFound() throws Exception {
         // Given
         TransferRequest request = TransferRequestMother.valid();
         when(transferUseCase.execute(any(TransferCommand.class)))
@@ -193,7 +193,7 @@ class TransactionControllerTest {
         mockMvc.perform(post(TRANSFER_ENDPOINT, TransferRequestMother.USER_ID_DEFAULT)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isPreconditionFailed());
+                .andExpect(status().isNotFound());
     }
 
     @Test
