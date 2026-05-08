@@ -8,9 +8,12 @@ import com.wastecoder.picpay.common.domain.viewmodels.SortOrder;
 import com.wastecoder.picpay.user.adapter.controller.request.CreateUserRequest;
 import com.wastecoder.picpay.user.adapter.controller.request.DepositRequest;
 import com.wastecoder.picpay.user.adapter.controller.response.DepositResponse;
+import com.wastecoder.picpay.user.adapter.controller.response.UserResponse;
 import com.wastecoder.picpay.user.adapter.controller.response.UserSummaryResponse;
+import com.wastecoder.picpay.user.domain.model.User;
 import com.wastecoder.picpay.user.domain.ports.input.CreateUserUseCase;
 import com.wastecoder.picpay.user.domain.ports.input.DepositUseCase;
+import com.wastecoder.picpay.user.domain.ports.input.GetUserByIdUseCase;
 import com.wastecoder.picpay.user.domain.ports.input.ListUsersUseCase;
 import com.wastecoder.picpay.user.domain.viewmodels.DepositResult;
 import com.wastecoder.picpay.user.domain.viewmodels.UserSummary;
@@ -32,6 +35,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 
+import static com.wastecoder.picpay.common.domain.utils.UuidUtils.uuidCustomValueOf;
+
 @RestController
 @RequestMapping("/api/v1/users")
 @Tag(name = "User Endpoints")
@@ -40,15 +45,18 @@ public class UserController {
     private final CreateUserUseCase createUserUseCase;
     private final DepositUseCase depositUseCase;
     private final ListUsersUseCase listUsersUseCase;
+    private final GetUserByIdUseCase getUserByIdUseCase;
 
     public UserController(
             CreateUserUseCase createUserUseCase,
             DepositUseCase depositUseCase,
-            ListUsersUseCase listUsersUseCase
+            ListUsersUseCase listUsersUseCase,
+            GetUserByIdUseCase getUserByIdUseCase
     ) {
         this.createUserUseCase = createUserUseCase;
         this.depositUseCase = depositUseCase;
         this.listUsersUseCase = listUsersUseCase;
+        this.getUserByIdUseCase = getUserByIdUseCase;
     }
 
     @PostMapping
@@ -92,6 +100,22 @@ public class UserController {
                 result.newBalance(),
                 result.depositedAt()
         ));
+    }
+
+    @GetMapping("/{user_id}")
+    @Operation(
+            summary = "Get user by id",
+            description = "On success returns 200 with the full user payload (without password)."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User found."),
+            @ApiResponse(responseCode = "404", description = "User not found.")
+    })
+    public ResponseEntity<UserResponse> getUserById(
+            @PathVariable("user_id") String userId
+    ) {
+        User user = getUserByIdUseCase.execute(uuidCustomValueOf(userId, "user_id"));
+        return ResponseEntity.ok(UserResponse.from(user));
     }
 
     @GetMapping

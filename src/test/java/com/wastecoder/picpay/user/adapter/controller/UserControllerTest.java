@@ -13,6 +13,7 @@ import com.wastecoder.picpay.user.domain.exceptions.UserNotFoundException;
 import com.wastecoder.picpay.user.domain.model.User;
 import com.wastecoder.picpay.user.domain.ports.input.CreateUserUseCase;
 import com.wastecoder.picpay.user.domain.ports.input.DepositUseCase;
+import com.wastecoder.picpay.user.domain.ports.input.GetUserByIdUseCase;
 import com.wastecoder.picpay.user.domain.ports.input.ListUsersUseCase;
 import com.wastecoder.picpay.user.domain.viewmodels.DepositCommand;
 import com.wastecoder.picpay.user.domain.viewmodels.DepositResult;
@@ -66,6 +67,9 @@ class UserControllerTest {
 
     @MockBean
     private ListUsersUseCase listUsersUseCase;
+
+    @MockBean
+    private GetUserByIdUseCase getUserByIdUseCase;
 
     @Test
     @DisplayName("GIVEN a valid common user payload WHEN POST /api/v1/users THEN returns 201 with Location header pointing to the new user")
@@ -316,8 +320,8 @@ class UserControllerTest {
     }
 
     @Test
-    @DisplayName("GIVEN deposit use case throws UserNotFoundException WHEN POST /api/v1/users/{user_id}/deposit THEN returns 412")
-    void shouldReturn412WhenDepositUserNotFound() throws Exception {
+    @DisplayName("GIVEN deposit use case throws UserNotFoundException WHEN POST /api/v1/users/{user_id}/deposit THEN returns 404")
+    void shouldReturn404WhenDepositUserNotFound() throws Exception {
         UUID userId = UUID.randomUUID();
         when(depositUseCase.execute(any(DepositCommand.class)))
                 .thenThrow(new UserNotFoundException());
@@ -325,7 +329,7 @@ class UserControllerTest {
         mockMvc.perform(post(USERS_ENDPOINT + "/" + userId + "/deposit")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"value\": 100.00}"))
-                .andExpect(status().isPreconditionFailed());
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -393,6 +397,46 @@ class UserControllerTest {
                 () -> assertThat(passed.sortOrders().get(0).field()).isEqualTo("createdAt"),
                 () -> assertThat(passed.sortOrders().get(0).direction()).isEqualTo(SortDirection.DESC)
         );
+    }
+
+    @Test
+    @DisplayName("GIVEN existing user WHEN GET /api/v1/users/{user_id} THEN returns 200 with full payload (without password)")
+    void shouldReturnOkWithFullUserPayload() throws Exception {
+        UUID userId = UUID.randomUUID();
+        BigDecimal balance = new BigDecimal("250.00");
+        when(getUserByIdUseCase.execute(userId))
+                .thenReturn(UserMother.commonUserWith(userId, balance));
+
+        mockMvc.perform(get(USERS_ENDPOINT + "/" + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userId.toString()))
+                .andExpect(jsonPath("$.full_name").value(UserMother.FULL_NAME_DEFAULT))
+                .andExpect(jsonPath("$.document").value(UserMother.DOCUMENT_DEFAULT))
+                .andExpect(jsonPath("$.email").value(UserMother.EMAIL_DEFAULT))
+                .andExpect(jsonPath("$.type").value(UserType.COMMON.name()))
+                .andExpect(jsonPath("$.balance").value(250.00))
+                .andExpect(jsonPath("$.password").doesNotExist());
+
+        verify(getUserByIdUseCase).execute(userId);
+    }
+
+    @Test
+    @DisplayName("GIVEN use case throws UserNotFoundException WHEN GET /api/v1/users/{user_id} THEN returns 404")
+    void shouldReturn404WhenUserDoesNotExist() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(getUserByIdUseCase.execute(userId)).thenThrow(new UserNotFoundException());
+
+        mockMvc.perform(get(USERS_ENDPOINT + "/" + userId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("GIVEN user_id path variable that is not a UUID WHEN GET /api/v1/users/{user_id} THEN returns 400 and use case is not called")
+    void shouldReturn400WhenGetUserIdIsNotUuid() throws Exception {
+        mockMvc.perform(get(USERS_ENDPOINT + "/not-a-uuid"))
+                .andExpect(status().isBadRequest());
+
+        verify(getUserByIdUseCase, never()).execute(any());
     }
 
 }
