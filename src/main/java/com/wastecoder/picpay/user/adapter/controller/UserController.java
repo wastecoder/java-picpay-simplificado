@@ -1,25 +1,36 @@
 package com.wastecoder.picpay.user.adapter.controller;
 
+import com.wastecoder.picpay.common.adapter.controller.response.PageResponse;
+import com.wastecoder.picpay.common.domain.viewmodels.PageQuery;
+import com.wastecoder.picpay.common.domain.viewmodels.PagedResult;
+import com.wastecoder.picpay.common.domain.viewmodels.SortDirection;
+import com.wastecoder.picpay.common.domain.viewmodels.SortOrder;
 import com.wastecoder.picpay.user.adapter.controller.request.CreateUserRequest;
 import com.wastecoder.picpay.user.adapter.controller.request.DepositRequest;
 import com.wastecoder.picpay.user.adapter.controller.response.DepositResponse;
+import com.wastecoder.picpay.user.adapter.controller.response.UserSummaryResponse;
 import com.wastecoder.picpay.user.domain.ports.input.CreateUserUseCase;
 import com.wastecoder.picpay.user.domain.ports.input.DepositUseCase;
+import com.wastecoder.picpay.user.domain.ports.input.ListUsersUseCase;
 import com.wastecoder.picpay.user.domain.viewmodels.DepositResult;
+import com.wastecoder.picpay.user.domain.viewmodels.UserSummary;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -28,10 +39,16 @@ public class UserController {
 
     private final CreateUserUseCase createUserUseCase;
     private final DepositUseCase depositUseCase;
+    private final ListUsersUseCase listUsersUseCase;
 
-    public UserController(CreateUserUseCase createUserUseCase, DepositUseCase depositUseCase) {
+    public UserController(
+            CreateUserUseCase createUserUseCase,
+            DepositUseCase depositUseCase,
+            ListUsersUseCase listUsersUseCase
+    ) {
         this.createUserUseCase = createUserUseCase;
         this.depositUseCase = depositUseCase;
+        this.listUsersUseCase = listUsersUseCase;
     }
 
     @PostMapping
@@ -75,5 +92,26 @@ public class UserController {
                 result.newBalance(),
                 result.depositedAt()
         ));
+    }
+
+    @GetMapping
+    @Operation(
+            summary = "List users (paginated)",
+            description = "Returns a paginated list of users exposing only id, full_name and type."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Page returned successfully.")
+    })
+    public ResponseEntity<PageResponse<UserSummaryResponse>> listUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "fullName,asc") String sort
+    ) {
+        String[] parts = sort.split(",", 2);
+        PageQuery query = new PageQuery(page, size, List.of(
+                new SortOrder(parts[0], SortDirection.valueOf(parts[1].toUpperCase()))
+        ));
+        PagedResult<UserSummary> result = listUsersUseCase.execute(query);
+        return ResponseEntity.ok(PageResponse.from(result, UserSummaryResponse::from));
     }
 }

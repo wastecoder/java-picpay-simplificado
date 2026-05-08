@@ -1,6 +1,9 @@
 package com.wastecoder.picpay.user.adapter.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wastecoder.picpay.common.domain.viewmodels.PageQuery;
+import com.wastecoder.picpay.common.domain.viewmodels.PagedResult;
+import com.wastecoder.picpay.common.domain.viewmodels.SortDirection;
 import com.wastecoder.picpay.user.UserMother;
 import com.wastecoder.picpay.user.adapter.controller.request.CreateUserRequest;
 import com.wastecoder.picpay.user.domain.enums.UserType;
@@ -10,8 +13,10 @@ import com.wastecoder.picpay.user.domain.exceptions.UserNotFoundException;
 import com.wastecoder.picpay.user.domain.model.User;
 import com.wastecoder.picpay.user.domain.ports.input.CreateUserUseCase;
 import com.wastecoder.picpay.user.domain.ports.input.DepositUseCase;
+import com.wastecoder.picpay.user.domain.ports.input.ListUsersUseCase;
 import com.wastecoder.picpay.user.domain.viewmodels.DepositCommand;
 import com.wastecoder.picpay.user.domain.viewmodels.DepositResult;
+import com.wastecoder.picpay.user.domain.viewmodels.UserSummary;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,14 +30,17 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.endsWith;
+import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -55,6 +63,9 @@ class UserControllerTest {
 
     @MockBean
     private DepositUseCase depositUseCase;
+
+    @MockBean
+    private ListUsersUseCase listUsersUseCase;
 
     @Test
     @DisplayName("GIVEN a valid common user payload WHEN POST /api/v1/users THEN returns 201 with Location header pointing to the new user")
@@ -316,4 +327,72 @@ class UserControllerTest {
                         .content("{\"value\": 100.00}"))
                 .andExpect(status().isPreconditionFailed());
     }
+
+    @Test
+    @DisplayName("GIVEN no query params WHEN GET /api/v1/users THEN returns 200 with paged body and only id/full_name/type per item")
+    void shouldReturnPagedListWithDefaults() throws Exception {
+        UUID idA = UUID.randomUUID();
+        UUID idB = UUID.randomUUID();
+        PagedResult<UserSummary> result = new PagedResult<>(
+                List.of(
+                        new UserSummary(idA, "Alice Silva", UserType.COMMON),
+                        new UserSummary(idB, "Bob Souza", UserType.MERCHANT)
+                ),
+                0, 20, 2L, 1
+        );
+        when(listUsersUseCase.execute(any(PageQuery.class))).thenReturn(result);
+
+        mockMvc.perform(get(USERS_ENDPOINT))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content[0].id").value(idA.toString()))
+                .andExpect(jsonPath("$.content[0].full_name").value("Alice Silva"))
+                .andExpect(jsonPath("$.content[0].type").value("COMMON"))
+                .andExpect(jsonPath("$.content[0].email").doesNotExist())
+                .andExpect(jsonPath("$.content[0].document").doesNotExist())
+                .andExpect(jsonPath("$.content[0].balance").doesNotExist())
+                .andExpect(jsonPath("$.content[0].password").doesNotExist())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.total_elements").value(2))
+                .andExpect(jsonPath("$.total_pages").value(1))
+                .andExpect(jsonPath("$.last").value(true));
+
+        ArgumentCaptor<PageQuery> captor = ArgumentCaptor.forClass(PageQuery.class);
+        verify(listUsersUseCase).execute(captor.capture());
+        PageQuery passed = captor.getValue();
+        Assertions.assertAll(
+                () -> assertThat(passed.page()).isEqualTo(0),
+                () -> assertThat(passed.size()).isEqualTo(20),
+                () -> assertThat(passed.sortOrders()).hasSize(1),
+                () -> assertThat(passed.sortOrders().get(0).field()).isEqualTo("fullName"),
+                () -> assertThat(passed.sortOrders().get(0).direction()).isEqualTo(SortDirection.ASC)
+        );
+    }
+
+    @Test
+    @DisplayName("GIVEN custom page/size/sort WHEN GET /api/v1/users THEN passes the parsed PageQuery to the use case")
+    void shouldPassCustomQueryParamsToUseCase() throws Exception {
+        when(listUsersUseCase.execute(any(PageQuery.class))).thenReturn(
+                new PagedResult<>(List.of(), 1, 5, 0L, 0)
+        );
+
+        mockMvc.perform(get(USERS_ENDPOINT)
+                        .param("page", "1")
+                        .param("size", "5")
+                        .param("sort", "createdAt,desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.last").value(true));
+
+        ArgumentCaptor<PageQuery> captor = ArgumentCaptor.forClass(PageQuery.class);
+        verify(listUsersUseCase).execute(captor.capture());
+        PageQuery passed = captor.getValue();
+        Assertions.assertAll(
+                () -> assertThat(passed.page()).isEqualTo(1),
+                () -> assertThat(passed.size()).isEqualTo(5),
+                () -> assertThat(passed.sortOrders().get(0).field()).isEqualTo("createdAt"),
+                () -> assertThat(passed.sortOrders().get(0).direction()).isEqualTo(SortDirection.DESC)
+        );
+    }
+
 }
