@@ -6,8 +6,12 @@ import com.wastecoder.picpay.user.adapter.controller.request.CreateUserRequest;
 import com.wastecoder.picpay.user.domain.enums.UserType;
 import com.wastecoder.picpay.user.domain.exceptions.DocumentAlreadyRegisteredException;
 import com.wastecoder.picpay.user.domain.exceptions.EmailAlreadyRegisteredException;
+import com.wastecoder.picpay.user.domain.exceptions.UserNotFoundException;
 import com.wastecoder.picpay.user.domain.model.User;
 import com.wastecoder.picpay.user.domain.ports.input.CreateUserUseCase;
+import com.wastecoder.picpay.user.domain.ports.input.DepositUseCase;
+import com.wastecoder.picpay.user.domain.viewmodels.DepositCommand;
+import com.wastecoder.picpay.user.domain.viewmodels.DepositResult;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,6 +23,8 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,6 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(UserController.class)
@@ -45,6 +52,9 @@ class UserControllerTest {
 
     @MockBean
     private CreateUserUseCase createUserUseCase;
+
+    @MockBean
+    private DepositUseCase depositUseCase;
 
     @Test
     @DisplayName("GIVEN a valid common user payload WHEN POST /api/v1/users THEN returns 201 with Location header pointing to the new user")
@@ -214,5 +224,96 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("GIVEN a valid deposit payload WHEN POST /api/v1/users/{user_id}/deposit THEN returns 200 with new_balance and deposited_at")
+    void shouldReturnOkWhenDepositSucceeds() throws Exception {
+        // Given
+        UUID userId = UUID.randomUUID();
+        BigDecimal newBalance = new BigDecimal("150.00");
+        LocalDateTime depositedAt = LocalDateTime.parse("2026-05-07T12:00:00");
+        when(depositUseCase.execute(any(DepositCommand.class)))
+                .thenReturn(new DepositResult(userId, newBalance, depositedAt));
+
+        // When / Then
+        mockMvc.perform(post(USERS_ENDPOINT + "/" + userId + "/deposit")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"value\": 100.00}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user_id").value(userId.toString()))
+                .andExpect(jsonPath("$.new_balance").value(150.00))
+                .andExpect(jsonPath("$.deposited_at").value("2026-05-07T12:00"));
+
+        ArgumentCaptor<DepositCommand> captor = ArgumentCaptor.forClass(DepositCommand.class);
+        verify(depositUseCase).execute(captor.capture());
+        DepositCommand passed = captor.getValue();
+        Assertions.assertAll(
+                () -> assertThat(passed.userId()).isEqualTo(userId),
+                () -> assertThat(passed.value()).isEqualByComparingTo("100.00")
+        );
+    }
+
+    @Test
+    @DisplayName("GIVEN deposit payload with missing value WHEN POST /api/v1/users/{user_id}/deposit THEN returns 400 and use case is not called")
+    void shouldReturn400WhenDepositValueIsMissing() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(post(USERS_ENDPOINT + "/" + userId + "/deposit")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        verify(depositUseCase, never()).execute(any());
+    }
+
+    @Test
+    @DisplayName("GIVEN deposit payload with zero value WHEN POST /api/v1/users/{user_id}/deposit THEN returns 400 and use case is not called")
+    void shouldReturn400WhenDepositValueIsZero() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(post(USERS_ENDPOINT + "/" + userId + "/deposit")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"value\": 0}"))
+                .andExpect(status().isBadRequest());
+
+        verify(depositUseCase, never()).execute(any());
+    }
+
+    @Test
+    @DisplayName("GIVEN deposit payload with negative value WHEN POST /api/v1/users/{user_id}/deposit THEN returns 400 and use case is not called")
+    void shouldReturn400WhenDepositValueIsNegative() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(post(USERS_ENDPOINT + "/" + userId + "/deposit")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"value\": -10.00}"))
+                .andExpect(status().isBadRequest());
+
+        verify(depositUseCase, never()).execute(any());
+    }
+
+    @Test
+    @DisplayName("GIVEN user_id path variable that is not a UUID WHEN POST /api/v1/users/{user_id}/deposit THEN returns 400 and use case is not called")
+    void shouldReturn400WhenDepositUserIdIsNotUuid() throws Exception {
+        mockMvc.perform(post(USERS_ENDPOINT + "/not-a-uuid/deposit")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"value\": 100.00}"))
+                .andExpect(status().isBadRequest());
+
+        verify(depositUseCase, never()).execute(any());
+    }
+
+    @Test
+    @DisplayName("GIVEN deposit use case throws UserNotFoundException WHEN POST /api/v1/users/{user_id}/deposit THEN returns 412")
+    void shouldReturn412WhenDepositUserNotFound() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(depositUseCase.execute(any(DepositCommand.class)))
+                .thenThrow(new UserNotFoundException());
+
+        mockMvc.perform(post(USERS_ENDPOINT + "/" + userId + "/deposit")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"value\": 100.00}"))
+                .andExpect(status().isPreconditionFailed());
     }
 }

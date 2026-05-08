@@ -19,11 +19,11 @@ public interface UserEntityDatabase extends JpaRepository<UserEntity, Long> {
 
     Optional<UserEntity> findByExternalId(UUID externalId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE UserEntity u SET u.balance = u.balance + :value WHERE u.externalId = :externalId")
     void updateBalanceWithPlusOperation(UUID externalId, BigDecimal value);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE UserEntity u SET u.balance = u.balance - :value WHERE u.externalId = :externalId")
     void updateBalanceWithMinusOperation(UUID externalId, BigDecimal value);
 }
