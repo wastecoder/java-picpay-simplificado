@@ -1,6 +1,6 @@
 # Documentação — Solução técnica
 
-Esta API expõe endpoints para **criar usuário**, **autenticar** e **efetuar transferências** entre usuários. Outros endpoints possíveis no escopo do desafio original não foram implementados.
+Esta API expõe endpoints para **criar usuário**, **listar / consultar usuário**, **depositar saldo**, **autenticar** e **efetuar transferências** entre usuários. Outros endpoints possíveis no escopo do desafio original não foram implementados.
 
 ## Sumário
 
@@ -10,6 +10,10 @@ Esta API expõe endpoints para **criar usuário**, **autenticar** e **efetuar tr
 - [4. Erros HTTP](#4-erros-http)
 - [5. Endpoints](#5-endpoints)
   - [5.1 Usuário](#51-usuário)
+    - [5.1.1 POST /api/v1/users](#511-post-apiv1users)
+    - [5.1.2 POST /api/v1/users/{user_id}/deposit](#512-post-apiv1usersuser_iddeposit)
+    - [5.1.3 GET /api/v1/users](#513-get-apiv1users)
+    - [5.1.4 GET /api/v1/users/{user_id}](#514-get-apiv1usersuser_id)
   - [5.2 Autenticação](#52-autenticação)
   - [5.3 Transferências](#53-transferências)
 - [6. OpenAPI / Swagger UI](#6-openapi--swagger-ui)
@@ -104,11 +108,11 @@ Todos os erros são serializados pelo `GlobalExceptionHandler` (`@RestController
 |---|---|---|
 | **400 Bad Request** | `MethodArgumentNotValidException` | Validação de bean falhou (`@NotBlank`, `@Positive`, etc). `messages` traz uma string por campo inválido. |
 | **400 Bad Request** | `HttpMessageNotReadableException` | JSON malformado ou ausente. `messages: ["Malformed JSON"]`. |
-| **400 Bad Request** | `ConstraintViolationException` | Violação de constraint em parâmetros (`@Validated` em path/query). |
+| **400 Bad Request** | `ConstraintViolationException` / `IllegalArgumentException` | Violação de constraint em parâmetros (`@Validated` em path/query) ou path param UUID inválido (ex.: `{user_id}` mal-formado em deposit / get-by-id). |
 | **400 Bad Request** | `UserTypeNotFoundException` | `type` enviado em `POST /api/v1/users` não bate com `COMMON` ou `MERCHANT`. |
+| **404 Not Found** | `UserNotFoundException` | Usuário (remetente, destinatário, alvo do depósito, login ou lookup direto) não existe. |
 | **409 Conflict** | `EmailAlreadyRegisteredException` | E-mail já cadastrado. |
 | **409 Conflict** | `DocumentAlreadyRegisteredException` | Documento já cadastrado. |
-| **412 Precondition Failed** | `UserNotFoundException` | Usuário (remetente, destinatário ou login) não existe. |
 | **412 Precondition Failed** | `IncorrectPasswordException` | Senha incorreta no login. |
 | **412 Precondition Failed** | `InsufficientBalanceException` | Saldo do remetente é menor que o valor da transferência. |
 | **412 Precondition Failed** | `UserCantTransferException` | Usuário do tipo `MERCHANT` tentou enviar transferência. |
@@ -124,7 +128,7 @@ Todos os erros são serializados pelo `GlobalExceptionHandler` (`@RestController
 
 ### 5.1 Usuário
 
-#### `POST /api/v1/users`
+#### 5.1.1 `POST /api/v1/users`
 
 Cria um usuário (`COMMON` ou `MERCHANT`).
 
@@ -157,6 +161,157 @@ Cria um usuário (`COMMON` ou `MERCHANT`).
 | **201 Created** | _(vazio)_ | Sucesso. Header `Location: /api/v1/users/{id}` aponta para o usuário criado. |
 | **400 Bad Request** | `ErrorResponse` | Algum campo inválido (`@NotBlank`) ou `type` fora do enum. |
 | **409 Conflict** | `ErrorResponse` | E-mail ou documento já cadastrados. |
+
+---
+
+#### 5.1.2 `POST /api/v1/users/{user_id}/deposit`
+
+Credita um valor positivo no saldo do usuário identificado por `user_id`. Reusa o mesmo mecanismo atômico de saldo do `transfer` (`updateBalanceWithPlusOperation`, `@Modifying` JPQL — ver [ADR-0003](adr/0003-atomic-balance-update-via-jpql.md)), só que sem `transfer-validation` nem `notify-user`.
+
+> ⚠️ Hoje `DepositUseCaseImpl` **não restringe por tipo de usuário** — tanto `COMMON` quanto `MERCHANT` podem depositar. Confirmar regra de negócio antes de bloquear `MERCHANT` se for o caso.
+
+**Path param:**
+
+| Param | Tipo | Descrição |
+|---|---|---|
+| `user_id` | UUID (string) | `external_id` do usuário a creditar. |
+
+**Request body:**
+
+| Campo | Tipo | Validação | Descrição |
+|---|---|---|---|
+| `value` | decimal | `@NotNull` + `@Positive` | Valor a creditar. Deve ser maior que zero. |
+
+**Exemplo de request:**
+
+```http
+POST /api/v1/users/9c2b1f3e-…/deposit
+Content-Type: application/json
+
+{
+  "value": 100.00
+}
+```
+
+**Resposta 200 OK:**
+
+| Campo | Tipo | Formato | Descrição |
+|---|---|---|---|
+| `user_id` | UUID (string) | — | `external_id` do usuário creditado. |
+| `new_balance` | decimal | — | Saldo do usuário após o crédito (re-lido do banco). |
+| `deposited_at` | timestamp | `yyyy-MM-dd'T'HH:mm` | Momento em que o depósito foi confirmado (gerado com `Clock` injetado). |
+
+```json
+{
+  "user_id": "9c2b1f3e-…",
+  "new_balance": 250.00,
+  "deposited_at": "2026-05-08T12:30"
+}
+```
+
+**Erros:**
+
+| Status | Causa | Quando |
+|---|---|---|
+| **400 Bad Request** | Validação | `value` ausente, zero ou negativo. |
+| **400 Bad Request** | UUID inválido | `user_id` não é um UUID válido. |
+| **404 Not Found** | `UserNotFoundException` | Usuário com esse `external_id` não existe. |
+
+---
+
+#### 5.1.3 `GET /api/v1/users`
+
+Lista paginada de usuários expondo apenas dados públicos (sem `email`, `document`, `password` ou `balance`). Útil para descobrir IDs sem precisar logar com cada usuário.
+
+**Query params:**
+
+| Param | Tipo | Default | Descrição |
+|---|---|---|---|
+| `page` | int | `0` | Índice da página (0-based). |
+| `size` | int | `20` | Tamanho da página. |
+| `sort` | string | `fullName,asc` | Formato `<campo>,<asc\|desc>` (case-insensitive na direção). Ex.: `sort=fullName,desc`. |
+
+**Exemplo de request:**
+
+```http
+GET /api/v1/users?page=0&size=10&sort=fullName,asc
+```
+
+**Resposta 200 OK** — `PageResponse<UserSummaryResponse>`:
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `content` | array | Itens da página. Cada item é `UserSummaryResponse`. |
+| `page` | int | Índice da página devolvida. |
+| `size` | int | Tamanho da página. |
+| `total_elements` | long | Total de usuários no banco. |
+| `total_pages` | int | Total de páginas. |
+| `last` | bool | `true` se for a última página. |
+
+`UserSummaryResponse` (cada item de `content`):
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | UUID (string) | `external_id` do usuário. |
+| `full_name` | string | Nome completo. |
+| `type` | string | `COMMON` ou `MERCHANT`. |
+
+```json
+{
+  "content": [
+    { "id": "9c2b1f3e-…", "full_name": "Joana Silva", "type": "COMMON" },
+    { "id": "f1a2b3c4-…", "full_name": "Padaria Central", "type": "MERCHANT" }
+  ],
+  "page": 0,
+  "size": 10,
+  "total_elements": 2,
+  "total_pages": 1,
+  "last": true
+}
+```
+
+> Itens **não** expõem `email`, `document`, `password` ou `balance` — para isso use [§5.1.4 `GET /api/v1/users/{user_id}`](#514-get-apiv1usersuser_id).
+
+---
+
+#### 5.1.4 `GET /api/v1/users/{user_id}`
+
+Devolve o payload completo do usuário (sem senha), incluindo `balance`. Útil para conferir saldo antes/depois de transferência ou depósito sem inspecionar o banco.
+
+**Path param:**
+
+| Param | Tipo | Descrição |
+|---|---|---|
+| `user_id` | UUID (string) | `external_id` do usuário. |
+
+**Resposta 200 OK** — `UserResponse`:
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | UUID (string) | `external_id` do usuário. |
+| `full_name` | string | Nome completo. |
+| `document` | string | CPF ou CNPJ. |
+| `email` | string | E-mail cadastrado. |
+| `type` | string | `COMMON` ou `MERCHANT`. |
+| `balance` | decimal | Saldo atual. |
+
+```json
+{
+  "id": "9c2b1f3e-…",
+  "full_name": "Joana Silva",
+  "document": "000.000.000-00",
+  "email": "joana@example.com",
+  "type": "COMMON",
+  "balance": 250.00
+}
+```
+
+**Erros:**
+
+| Status | Causa | Quando |
+|---|---|---|
+| **400 Bad Request** | UUID inválido | `user_id` não é um UUID válido. |
+| **404 Not Found** | `UserNotFoundException` | Usuário com esse `external_id` não existe. |
 
 ---
 
@@ -203,7 +358,8 @@ Autentica um usuário e devolve um JWT.
 | Status | Quando |
 |---|---|
 | **400 Bad Request** | Campo `email` ou `password` em branco. |
-| **412 Precondition Failed** | Usuário não encontrado (`UserNotFoundException`) ou senha incorreta (`IncorrectPasswordException`). |
+| **404 Not Found** | Usuário não encontrado (`UserNotFoundException`). |
+| **412 Precondition Failed** | Senha incorreta (`IncorrectPasswordException`). |
 
 **Estrutura do JWT:**
 - `iss` = valor de `security.jwt.issuer`
@@ -269,7 +425,7 @@ Authorization: Bearer eyJhbGciOiJIUzUxMiJ9…
 | Status | Causa | Quando |
 |---|---|---|
 | **400 Bad Request** | Validação | `target_id` em branco, `value` ausente/zero/negativo, `description` em branco, `user_id` ou `target_id` não são UUID válidos. |
-| **412 Precondition Failed** | `UserNotFoundException` | Remetente ou destinatário não encontrado. |
+| **404 Not Found** | `UserNotFoundException` | Remetente ou destinatário não encontrado. |
 | **412 Precondition Failed** | `UserCantTransferException` | Remetente é `MERCHANT` (só pode receber). |
 | **412 Precondition Failed** | `InsufficientBalanceException` | Saldo do remetente é menor que `value`. |
 | **422 Unprocessable Entity** | `TransferNotAllowedException` | `transfer-validation` retornou `DENIED` ou está fora do ar (fallback nega por segurança). |

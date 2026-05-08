@@ -34,10 +34,10 @@ Distribuição atual:
 
 | Tipo | Classes | Tecnologias | Task Gradle |
 |---|---|---|---|
-| Unit (use case) | 3 | JUnit 5 + Mockito + AssertJ | `./gradlew test` |
+| Unit (use case) | 6 | JUnit 5 + Mockito + AssertJ | `./gradlew test` |
 | Adapter (gateway) | 2 | Mockito + Resilience4j | `./gradlew test` |
 | Adapter (web layer) | 3 | `@WebMvcTest` + MockMvc | `./gradlew test` |
-| Integração | 2 | `@SpringBootTest` + Testcontainers + WireMock | `./gradlew integrationTest` |
+| Integração | 4 | `@SpringBootTest` + Testcontainers + WireMock | `./gradlew integrationTest` |
 | Object Mothers | 6 (auxiliares) | — | — |
 
 ---
@@ -63,18 +63,25 @@ src/test/java/com/wastecoder/picpay/
 └── user/
     ├── UserMother.java
     ├── NotificationMother.java
+    ├── DepositIntegrationTest.java
+    ├── ListUsersIntegrationTest.java
     ├── usecases/
     │   ├── CreateUserUseCaseImplTest.java
-    │   └── LoginUserUseCaseImplTest.java
+    │   ├── LoginUserUseCaseImplTest.java
+    │   ├── DepositUseCaseImplTest.java
+    │   ├── ListUsersUseCaseImplTest.java
+    │   └── GetUserByIdUseCaseImplTest.java
     └── adapter/
         ├── client/
         │   └── NotifyUserGatewayImplTest.java
         └── controller/
             ├── CreateUserRequestMother.java
             ├── LoginUserRequestMother.java
-            ├── UserControllerTest.java
+            ├── UserControllerTest.java     ← cobre create + deposit + list + getById
             └── AuthControllerTest.java
 ```
+
+> Os testes web dos endpoints novos (deposit / list / getById) reaproveitam `UserMother` e construção inline do payload — não há `DepositRequestMother` separada hoje.
 
 Não há `application-test.yml` — propriedades são injetadas em runtime via `@DynamicPropertySource` (ver §7).
 

@@ -76,8 +76,9 @@ Content-Type: application/json
 | 7 | Notificação ao destinatário via serviço externo (instável) | ✅ | `NotifyUserGateway` com circuit breaker; falha é best-effort |
 | 8 | API RESTful | ✅ | Recursos por URL, verbos HTTP corretos, status codes coerentes |
 | — | Autenticação JWT (proposta extra) | ⚠️ | Geração no login funciona; **filtro de auth ainda não está ativo** (`SecurityConfiguration` usa `permitAll()`) |
-| — | Endpoint de depósito | ❌ | Não implementado. Saldo só pode ser pré-populado via banco. |
-| — | Endpoints de consulta (saldo, lista de transações) | ❌ | Fora do escopo mínimo do desafio. |
+| — | Endpoint de depósito | ✅ | `POST /api/v1/users/{user_id}/deposit` + `DepositUseCaseImpl` (reusa `updateBalanceWithPlusOperation`) |
+| — | Listar usuários e consultar usuário individual | ✅ | `GET /api/v1/users` (paginado, payload mínimo) + `GET /api/v1/users/{user_id}` |
+| — | Lista de transações por usuário | ❌ | Fora do escopo mínimo do desafio. |
 | — | Documentação técnica completa (arquitetura, API, testes, ADRs) | ✅ | [doc/](doc/README.md) |
 | — | Testes (unidade, adapter, integração, mutation) | ✅ | JUnit 5 + Mockito + Testcontainers + WireMock + JaCoCo + PIT |
 | — | CI | ✅ | GitHub Actions (`ci.yml`) — testes unitários e de integração |
@@ -111,6 +112,9 @@ Comandos completos, variáveis de ambiente e troubleshooting em [doc/DEVELOPMENT
 | Método | Path | Função |
 |---|---|---|
 | `POST` | `/api/v1/users` | Cria um usuário (`COMMON` ou `MERCHANT`). Retorna `201 Created` com `Location`. |
+| `GET` | `/api/v1/users` | Lista paginada de usuários (`page`, `size`, `sort=campo,asc\|desc`). Itens só expõem `id`, `full_name`, `type`. |
+| `GET` | `/api/v1/users/{user_id}` | Payload completo de um usuário (sem senha), inclui `balance`. |
+| `POST` | `/api/v1/users/{user_id}/deposit` | Credita `value` no saldo. Retorna `200 OK` com `new_balance` + `deposited_at`. |
 | `POST` | `/api/v1/auth/login` | Autentica e retorna JWT (HS512, TTL 600s). |
 | `POST` | `/api/v1/users/{user_id}/transfer` | Envia uma transferência. Retorna `200 OK` com `sent_date` + mensagem. |
 

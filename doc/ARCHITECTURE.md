@@ -25,16 +25,16 @@ Linhas tracejadas representam dependências externas protegidas por circuit brea
 ```
 picpay-simplificado/src/main/java/com/wastecoder/picpay/
 ├── PicpaySimplificadoApplication.java   ← @SpringBootApplication, @EnableFeignClients
-├── user/                                ← feature: cadastro, login, JWT
+├── user/                                ← feature: cadastro, listagem, lookup, depósito, login, JWT
 │   ├── domain/
 │   │   ├── model/                       User, TokenSession (puros, sem Spring/JPA)
 │   │   ├── enums/                       UserType (COMMON, MERCHANT)
 │   │   ├── exceptions/                  *Exception extends ApplicationException
-│   │   ├── viewmodels/                  LoginUserCommand, LoginUserResult (records)
+│   │   ├── viewmodels/                  LoginUserCommand, LoginUserResult, DepositCommand, DepositResult, UserSummary (records)
 │   │   └── ports/
-│   │       ├── input/                   CreateUserUseCase, LoginUserUseCase
+│   │       ├── input/                   CreateUserUseCase, LoginUserUseCase, DepositUseCase, ListUsersUseCase, GetUserByIdUseCase
 │   │       └── output/                  UserRepository, CryptoGateway, TokenGateway, NotifyUserGateway
-│   ├── usecases/                        CreateUserUseCaseImpl, LoginUserUseCaseImpl (@Service)
+│   ├── usecases/                        CreateUserUseCaseImpl, LoginUserUseCaseImpl, DepositUseCaseImpl, ListUsersUseCaseImpl, GetUserByIdUseCaseImpl (@Service)
 │   └── adapter/
 │       ├── controller/                  UserController, AuthController + request/response records
 │       ├── repository/                  UserRepositoryImpl + database/UserEntityDatabase + entity/UserEntity + mapper/
@@ -57,13 +57,14 @@ picpay-simplificado/src/main/java/com/wastecoder/picpay/
 └── common/                              ← cruza features
     ├── domain/
     │   ├── exceptions/                  ApplicationException extends ResponseStatusException
+    │   ├── viewmodels/                  PageQuery, PagedResult, SortOrder, SortDirection (paginação reusável)
     │   └── utils/                       UuidUtils
     └── adapter/
         ├── clock/                       ClockConfiguration (@Bean Clock)
         ├── repository/                  AbstractJpaPersistable<Long> (id, createdAt, updatedAt)
         └── controller/
             ├── GlobalExceptionHandler   @RestControllerAdvice
-            ├── response/                ErrorResponse
+            ├── response/                ErrorResponse, PageResponse<T> (envelope HTTP da paginação)
             └── security/                JwtTokenConfiguration, SecurityConfiguration
 ```
 
@@ -211,6 +212,36 @@ Pontos de atenção:
   - Cuidado: como o `notify` está dentro do `@Transactional`, uma exceção *não tratada* pelo fallback ainda causaria rollback.
 - **`transfer-validation` é bloqueante.**
   - O fallback de `TransferValidationGatewayImpl` retorna `DENIED` quando o serviço cai — por segurança, transferência negada equivale a serviço indisponível.
+
+### 4.4 Depósito
+
+`UserController.deposit` → `DepositUseCaseImpl` (`@Transactional`): credita `value` no saldo do usuário identificado por `user_id`. Reusa o mesmo mecanismo atômico de saldo da transferência (`updateBalanceWithPlusOperation`, `@Modifying` JPQL) — só que sem `transfer-validation` e sem `notify-user`. Detalhes do contrato HTTP em [DOCUMENTATION.md §5.1.2](DOCUMENTATION.md#512-post-apiv1usersuser_iddeposit).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor C as Cliente
+    participant Ctl as UserController
+    participant UC as DepositUseCaseImpl<br/>(@Transactional)
+    participant Repo as UserRepository
+    participant DB as Postgres
+
+    C->>Ctl: POST /api/v1/users/{user_id}/deposit<br/>{ value }
+    Ctl->>Ctl: @Valid + parse user_id (UUID)
+    Ctl->>UC: execute(DepositCommand)
+    UC->>Repo: findById(userId)
+    Repo-->>UC: User (ou UserNotFoundException → 404)
+    UC->>Repo: updateBalanceWithPlusOperation(user, value)
+    Repo->>DB: UPDATE users SET balance = balance + ?<br/>(constraint CHECK preservada)
+    UC->>Repo: findById(userId) (relê para devolver new_balance)
+    Repo-->>UC: User atualizado
+    UC-->>Ctl: DepositResult(userId, newBalance, depositedAt)
+    Ctl-->>C: 200 OK
+```
+
+Pontos de atenção:
+- **Mesma garantia de atomicidade do transfer.** O UPDATE JPQL é column-math direto, sem read-modify-write; depósitos concorrentes no mesmo usuário não corrompem saldo (ver [adr/0003-atomic-balance-update-via-jpql.md](adr/0003-atomic-balance-update-via-jpql.md)).
+- **Sem restrição por tipo.** Tanto `COMMON` quanto `MERCHANT` podem depositar — regra a confirmar.
 
 ---
 
